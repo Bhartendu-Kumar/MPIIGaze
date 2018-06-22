@@ -1,12 +1,14 @@
-%function tempforest(NUM_OF_GROUPS)
-function tempforest
-
+function tempforest(NUM_OF_GROUPS,  curr_size, curr_dist)
+%function tempforest()
+%NUM_OF_GROUPS=192
+%curr_size=30000
+%curr_dist=0.06
 
 clc;
 
 addpath /home/trakis/Downloads/MPIIGaze/Data/%@tree
 
-NUM_OF_GROUPS = 384;%149;
+
 HEIGHT = 15;%9;
 WIDTH = 9;%15;
 
@@ -18,7 +20,7 @@ WIDTH = 9;%15;
 samplesInTree = zeros(1,NUM_OF_GROUPS);
 
 
-for R = 5:6%11:13
+for R =  3:10%11:13
 
 for i = 1:NUM_OF_GROUPS %for each tree
 
@@ -158,9 +160,15 @@ end
 	test_gazes    = H5D.read(test_gazesID);
 	test_poses    = H5D.read(test_posesID);
 
+
 	ntestsamples = length( test_imgs(:,:,:,:) );
-	mean_predict = zeros(1, 2*ntestsamples);
-	for j = 1:3%ntestsamples
+	for j = 1:ntestsamples
+
+	   %%% JUST FOR DEBUGGING %%%
+	   %test_gazes(:,j)'
+	   %for k = 1:(R+1)
+	   %	test_rnearest(k,j)
+	   %end
 
 	   predict = [0 0]; 
 	   for k = 1:(R+1)%each samples, run the R+1 trees
@@ -172,38 +180,26 @@ end
 	   
 	   %%% prediction = mean prediction of all trees %%%		 
 	   predict = predict/(R+1);
-	   errors(j) = norm( predict - test_gazes(:,j)',2 )%mipws einai lathos i norma?!
+	   errors(j) = norm( predict - test_gazes(:,j)',2 );%mipws einai lathos i norma?!
 	 
 	end
-fprintf('\n\n');
-	mean_error =  rad2deg( mean(  errors(1:3)) )%rad2deg( mean(  errors(1:ntestsamples)) )
-	deviation  = rad2deg( std( errors(1:3)) ) %rad2deg( std( errors(1:ntestsamples)) )	
+	mean_error =  rad2deg( mean(  errors(1:ntestsamples)) )%%
+	deviation  =  rad2deg( std( errors(1:ntestsamples)) )%%	
 
-	if R == 1
-	   fileID =  fopen( strcat(R,'nearest3.txt'),'w');
-	elseif R == 2
-	   fileID =  fopen( strcat(R,'nearest3.txt'),'w');
-	elseif R == 3
-	   fileID =  fopen( strcat(R,'nearest4.txt'),'w');
-	elseif R == 4
-	   fileID =  fopen( strcat(R,'nearest5.txt'),'w');
-	elseif R == 5	
-	   fileID =  fopen( strcat(R,'nearest006.txt'),'w');
-	elseif R == 6
-	   fileID =  fopen( strcat(R,'nearest6.txt'),'w');
-	elseif R == 7
-	   fileID =  fopen( strcat(R,'nearest7.txt'),'w');
-	elseif R == 8
-	   fileID =  fopen( strcat(R,'nearest8.txt'),'w');
-	elseif R == 9
-	   fileID =  fopen( strcat(R,'nearest9.txt'),'w');
-	elseif R == 10
-	   fileID =  fopen( strcat(R,'nearest10.txt'),'w');
-	elseif R == 11
-	   fileID =  fopen( strcat(R,'nearest11.txt'),'w');
-	elseif R == 12
-	   fileID =  fopen( strcat(R,'nearest12.txt'),'w');
+
+	if curr_dist == 0.03
+	    fileID = fopen( fullfile('/home/trakis/Downloads/MPIIGaze/Data/database/',num2str(curr_size),strcat('/003/R', num2str(R))  ,'/measuments.txt'), 'w+');
+	elseif curr_dist == 0.04
+	    fileID = fopen( fullfile('/home/trakis/Downloads/MPIIGaze/Data/database/',num2str(curr_size),strcat('/004/R', num2str(R))  ,'/measuments.txt'), 'w+');
+	  
+	elseif curr_dist == 0.05
+	    fileID = fopen( fullfile('/home/trakis/Downloads/MPIIGaze/Data/database/',num2str(curr_size), strcat('/005/R', num2str(R))  ,'/measuments.txt'), 'w+');
+	else	
+	    fileID = fopen( fullfile('/home/trakis/Downloads/MPIIGaze/Data/database/',num2str(curr_size), strcat('/006/R', num2str(R))  ,'/measuments.txt'), 'w+')
 	end
+
+
+	
 	fprintf(fileID,'%f\n%f', mean_error, deviation);
 	fclose(fileID);
 	
@@ -226,7 +222,7 @@ fprintf('\n\n');
 	H5F.close(fid);
 
 
-end
+end %end of neighbour-R
 
 end
 
@@ -235,9 +231,10 @@ function val = testSampleInTree(tree, node, test_img,  test_pose )
 
    if tree.isleaf(node) 
       leafdata = tree.get(node);
-      leafposes = leafdata.poses;
-      leafgazes = leafdata.gazes;
-      samplesInLeaf = length( leafgazes(:,1) )
+      val = leafdata.mean;	
+      %leafposes = leafdata.poses;
+      %leafgazes = leafdata.gazes;
+      %samplesInLeaf = length( leafgazes(:,1) );
       	    
       %for k = 1:samplesInLeaf
 	%goodness(k) = 1/ sqrt( (leafposes(1,k,1)-test_pose(1))^2 + (leafposes(1,k,2)-test_pose(2)) ); 
@@ -256,12 +253,9 @@ function val = testSampleInTree(tree, node, test_img,  test_pose )
 
 
       %%% not weight, but the average %%%
-      val(1) = sum(leafgazes(1:samplesInLeaf, 1))/samplesInLeaf;
-      val(2) = sum(leafgazes(1:samplesInLeaf, 2))/samplesInLeaf;   
-
-      deviation = std(leafgazes(1:samplesInLeaf));
-      val
-      deviation
+      %val(1) = sum(leafgazes(1:samplesInLeaf, 1))/samplesInLeaf;
+      %val(2) = sum(leafgazes(1:samplesInLeaf, 2))/samplesInLeaf;
+ 
    else
 
       data= sscanf(tree.get(node),'Samples:%f,px1(%f,%f)-px2(%f,%f)>=%f');
@@ -280,7 +274,7 @@ end
 
 
 function treesMy = buildRegressionTree( NUM_OF_GROUPS, fatherSizeX, treeImgsX,  treeGazesX, treePosesX, HEIGHTX, WIDTHX)
-	MAX_DEPTH = 20;
+	MAX_DEPTH = 50;
 	NUM_OF_WORKERS = 3;
 	MAX_FATHER_SIZE = 189;%200;	
 	MAX_FATHER_CHILD_DIST = 15;
@@ -348,15 +342,9 @@ function treesMy = buildRegressionTree( NUM_OF_GROUPS, fatherSizeX, treeImgsX,  
         bestSize = fatherSize(1);
 
 
+
  for i = 1:NUM_OF_GROUPS % for every tree
-%   if i == 35 || i == 31 || i == 74 || i==39 ||i==26 || i ==40 || i == 27 || i == 74 || i == 10 || i == 5 || i ==6 || i==72 || i ==8 || i==10 || i==31 || i==9 || i==7 || i==6 || i==12 || i==115 || i==46 || i == 72 || i==11 || i==115 || i==47 || i==40 || i==26 || i==89 || i == 72 || i == 39 || i ==5 || i == 51 || i == 46 || i == 9 || i == 74 || i == 21 || i == 114 || i == 47 || i == 115 || i == 106 || i == 20 || i == 33 || i == 68 || i == 33 || i == 13 || i == 62 %006
-
-%if i==302.0 || i== 40.0	 || i== 54.0 || i==	5.0	|| i==89.0	|| i==49.0 || i==	71.0 || i==	83.0 || i==	127.0	|| i==9.0	|| i==88.0 || i==33.0 || i==	204.0 || i==	28.0 || i==	118.0 || i ==	10.0 || i==	41.0 || i==	65.0 || i==	87.0 || 	i==36.0	|| i==161.0 || i==	117.0 || i==118.0 || i==	204.0 || i==	161.0 || i== 	33.0||	i==44.0	|| i==117.0  || i==265.0  || i==144.0 || i==	167.0 || i==108.0 || i==9.0 || i==189.0 || i==	150.0 || i==29.0 || i==	13.0 || i ==117.0  || i==89.0 || i==124.0 || i==	246.0 || i==1.0 || i==274.0 || i==328.0 || i==	35.0 || i==36.0 || i==	137.0 || i==22.0 || i==	290.0 || i==7.0  || i==165.0 || i==86.0 || i==8.0 || i==73.0 || i==145.0 || i==105.0 || i==47.0 || i==300.0
-
-
-if i==302.0 || i== 40.0	 || i== 54.0 || i==	5.0	|| i==89.0	|| i==49.0 || i==	71.0 || i==	83.0 || i==	127.0	|| i==9.0	|| i==88.0 || i==33.0 || i==	204.0 || i==	28.0 || i==	118.0 || i ==	10.0 || i==	41.0 || i==	65.0 || i==	87.0 || 	i==36.0	|| i==161.0 || i==	117.0 || i==118.0 || i==	204.0 || i==	161.0 || i== 	33.0||	i==44.0	|| i==117.0  || i==265.0  || i==144.0 || i==	167.0 || i==108.0 || i==9.0 || i==189.0 || i==	150.0 || i==29.0 || i==	13.0 || i ==117.0  || i==89.0 || i==124.0 || i==	246.0 || i==1.0 || i==274.0 || i==328.0 || i==	35.0 || i==36.0 || i==	137.0 || i==22.0 || i==	290.0 || i==7.0  || i==165.0 || i==86.0 || i==8.0 || i==73.0 || i==145.0 || i==105.0 || i==47.0 || i==300.0
-
-
+  
         if  (fatherSize(i) > bestSize) || (bestSize - fatherSize(i) > MAX_FATHER_CHILD_DIST ) 
 	  %%% reallocate memory when the condition is true %%%    
 	   bestSize = fatherSize(i);
@@ -413,7 +401,7 @@ if i==302.0 || i== 40.0	 || i== 54.0 || i==	5.0	|| i==89.0	|| i==49.0 || i==	71.
 		     end
 		
                      if  sqrt( (px1_vert -px2_vert)^2+(px1_hor-px2_hor)^2 ) < 6.5             
-		        for thres = 25:30%1:50
+		        for thres = 25:40%1:50
 			   l = 0;
 			   r = 0;			
 			   meanLeftGaze = [0 0];
@@ -440,8 +428,10 @@ if i==302.0 || i== 40.0	 || i== 54.0 || i==	5.0	|| i==89.0	|| i==49.0 || i==	71.
 			       end
 			    end
 	
-			       meanLeftGaze = meanLeftGaze  / l;
-			       meanRightGaze = meanRightGaze/ r;
+			       meanLeftGaze(1) = meanLeftGaze(1)  / l;
+			       meanLeftGaze(2) = meanLeftGaze(2)  / l;
+			       meanRightGaze(1) = meanRightGaze(1)/ r;
+			       meanRightGaze(2) = meanRightGaze(2)/ r;
 
 			       squareError = 0;
 				for j = 1:l	
@@ -517,25 +507,23 @@ if i==302.0 || i== 40.0	 || i== 54.0 || i==	5.0	|| i==89.0	|| i==49.0 || i==	71.
 
               trees(i)=trees(i).set(node_i,strcat('Samples:',num2str(fatherSize(i)),',px1(', num2str(minPx1_vert),',',num2str(minPx1_hor),')-','px2(',num2str(minPx2_vert),',',num2str(minPx2_hor),')>=', num2str(bestThres) ));  
 
-
 	   
 	      rnode_info.poses = treePoses(i, l_r_fl_fr_ptrs(4,1:rtreeSize), :);
 	      rnode_info.gazes = treeGazes(i, l_r_fl_fr_ptrs(4,1:rtreeSize), :);
 	      rnode_info.num = rtreeSize;
-	      rnode_info.mean = meanRightGaze;
+	      rnode_info.mean = rtree_meanGaze;
 	      rnode_info.std = stdRightGaze;
 	     
 	      lnode_info.poses = treePoses(i, l_r_fl_fr_ptrs(3,1:ltreeSize), :);
 	      lnode_info.gazes = treeGazes(i, l_r_fl_fr_ptrs(3,1:ltreeSize), :);
-	      rlnode_info.num = ltreeSize;
-	      lnode_info.mean = meanLeftGaze;
+	      lnode_info.num = ltreeSize;
+	      lnode_info.mean = ltree_meanGaze;
 	      lnode_info.std = stdLeftGaze;
 
 	      [trees(i) lnode] = trees(i).addnode(node_i, lnode_info);
 	      [trees(i) rnode] = trees(i).addnode(node_i, rnode_info);
 	      
-	      
-	 
+	  
 	      % start saving the left brother     
 	      stackindex = stackindex + 1;
 	      savedNodeSize(stackindex,1) = lnode;
@@ -618,10 +606,9 @@ if i==302.0 || i== 40.0	 || i== 54.0 || i==	5.0	|| i==89.0	|| i==49.0 || i==	71.
 
     if labindex == 1
 	i
-        disp(trees(i).tostring);
+        %disp(trees(i).tostring);
     end 
 
-  end %if tree  
  
  end %treeCompleted
 

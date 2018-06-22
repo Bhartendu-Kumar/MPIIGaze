@@ -10,26 +10,37 @@ if exist('mytest.h5', 'file') == 2
   delete('mytest.h5');
 end
 
+%TOTAL_DATA = [30000 40000 50000 60000];
+TOTAL_DATA = [30000 40000];
+CENTER_SIZE = [0.06 0.05 0.04 0.03];
+MAX_NEIGHBOURS = 20;
 
-TOTAL_DATA = 50000;%44640;%number of samples
-TEST_SIZE= TOTAL_DATA/5;
-
-R = 20;
 WIDTH = 15;
 HEIGHT = 9;
 
-MAX_NUM_OF_GROUPS = 500;
+
+MAX_NUM_OF_GROUPS = 1500;
 MAX_SIZE_PER_GROUP = 1500;
 
 
 
 %%% structure allocation %%%
-groups(1:MAX_NUM_OF_GROUPS) = struct('centerTheta', zeros(1) , 'centerPhi', zeros(1), 'index', 0,  'RnearestCenters', uint16(zeros(R,1)), 'trainData', [], 'numberOfSamples', zeros(1), 'confidence', zeros(1) );
+groups(1:MAX_NUM_OF_GROUPS) = struct('centerTheta', zeros(1) , 'centerPhi', zeros(1), 'index', 0,  'RnearestCenters', uint16(zeros(MAX_NEIGHBOURS,1)), 'trainData', [], 'numberOfSamples', zeros(1), 'confidence', zeros(1) );
 
 
 
 
 %%% construct cluster centers %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+ 
+for q=1:length(CENTER_SIZE)
+   curr_dist = CENTER_SIZE(q);
+
+for p=1:length(TOTAL_DATA)
+  curr_size = TOTAL_DATA(p);
+
+TEST_SIZE= curr_size/5; 
 
 
 %Pij lists all p00, p01, p02,...
@@ -51,7 +62,7 @@ Pij = dirData(dirIndex);
   files = {dirData(~dirIndex).name}';
 
   %%%% STEPS %%%%
-  step_size = get_step_size( filepath, TOTAL_DATA);
+  step_size = get_step_size( filepath, curr_size);
   curr_step = 1;
   curr_ratio = 0;
 
@@ -74,7 +85,7 @@ Pij = dirData(dirIndex);
         theta = asin(Zv(2));
         phi = atan2(Zv(1), Zv(3));
           
-	if can_be_center(groups, theta, phi, numGrps)
+	if can_be_center(groups, theta, phi, numGrps, curr_dist)
 	   numGrps = numGrps + 1;
 	   groups(numGrps).centerTheta = theta;
 	   groups(numGrps).centerPhi = phi;
@@ -87,7 +98,7 @@ Pij = dirData(dirIndex);
         Zv = M(:,3);
         theta = asin(Zv(2));
        	phi = atan2(Zv(1), Zv(3));
-	if can_be_center(groups, theta, (-1)*phi, numGrps)
+	if can_be_center(groups, theta, (-1)*phi, numGrps, curr_dist)
 	   numGrps = numGrps + 1;
 	   groups(numGrps).centerTheta = theta;
 	   groups(numGrps).centerPhi = (-1)*phi;
@@ -121,7 +132,7 @@ testData=[];
 testData.data = zeros(WIDTH,HEIGHT ,1, TEST_SIZE);
 testData.gaze = zeros(2, TEST_SIZE);%15*375*2);%zeros(2, total_num*2);
 testData.headpose = zeros(2, TEST_SIZE);%15*375*2);%zeros(2, total_num*2);S
-testData.nTrees = zeros( R+1, TEST_SIZE);
+testData.nTrees = zeros( MAX_NEIGHBOURS +1, TEST_SIZE);
 %testData.confidence = zeros(1, 15*375*2);%zeros(1, total_num*2);
 testindex = 0;
 
@@ -151,7 +162,7 @@ Pij = dirData(dirIndex);
   files = {dirData(~dirIndex).name}';
 
   %%%% STEPS %%%%
-  step_size = get_step_size( filepath, TOTAL_DATA);
+  step_size = get_step_size( filepath, curr_size);
   curr_step = step_size;
  
 
@@ -270,12 +281,14 @@ Pij = dirData(dirIndex);
 end  % for each pij
 
 
-for i = 1:15
-   votes(i)
-end
-tester
-trainer
-error('poulo\n');
+%%% just for debugging %%%
+%for i = 1:15
+%   votes(i)
+%end
+%tester
+%trainer
+
+
 %hold on;
 %axis([-1 1 -1 1]);
 %title( strcat('Head pose distribution of 44640 samples. Num of Centers: ', num2str(numGrps)) );
@@ -358,14 +371,14 @@ for i = 1:numGrps
 
 %%%%%% Dataset 4: List of R-nearest groups %%%%
 
-	listOfGroupIds = find_R_nearest_groups(groups(i).centerTheta, groups(i).centerPhi, groups, R, [i], numGrps );
-	i
-	dims = [(R+1) 1];
+	listOfGroupIds = find_R_nearest_groups(groups(i).centerTheta, groups(i).centerPhi, groups, MAX_NEIGHBOURS , [i], numGrps );
+	
+	dims = [(MAX_NEIGHBOURS +1) 1];
 	h5_dims = fliplr(dims);
 	h5_maxdims = h5_dims;
 	space_id = H5S.create_simple(2,h5_dims,h5_maxdims);
 
-	dset = H5D.create(grp,strcat('/g', num2str(i),'/',num2str(R),'_nearestIDs'), type_id,space_id,dcpl);
+	dset = H5D.create(grp,strcat('/g', num2str(i),'/',num2str(MAX_NEIGHBOURS),'_nearestIDs'), type_id,space_id,dcpl);
 	H5D.write(dset,'H5ML_DEFAULT','H5S_ALL','H5S_ALL',plist, listOfGroupIds );
 	H5D.close(dset);
 	H5S.close(space_id);	
@@ -439,34 +452,48 @@ fid = H5F.create('mytest.h5');
 
 %%%%%% Dataset 3: List of R-nearest groups %%%%
 	for o = 1:testindex
-	   testData.nTrees(1:(R+1), o) =find_R_nearest_groups( groups(testData.nTrees(1,o)).centerTheta, groups(testData.nTrees(1,o)).centerPhi, groups, R, [testData.nTrees(1,o)], numGrps);
-	o
+	   testData.nTrees(1:(MAX_NEIGHBOURS+1), o) =find_R_nearest_groups( groups(testData.nTrees(1,o)).centerTheta, groups(testData.nTrees(1,o)).centerPhi, groups, MAX_NEIGHBOURS , [testData.nTrees(1,o)], numGrps);
+
 	end
 
-
-	dims = [(R+1) testindex];
+	dims = [(MAX_NEIGHBOURS +1) testindex];
 	h5_dims = fliplr(dims);
 	h5_maxdims = h5_dims;
 	space_id = H5S.create_simple(2,h5_dims,h5_maxdims);
 
 	dset = H5D.create(fid, '_nearestIDs', type_id,space_id,dcpl);
-	H5D.write(dset,'H5ML_DEFAULT','H5S_ALL','H5S_ALL',plist,  testData.nTrees( 1:(R+1), 1:testindex  )  );
+	H5D.write(dset,'H5ML_DEFAULT','H5S_ALL','H5S_ALL',plist,  testData.nTrees( 1:(MAX_NEIGHBOURS +1), 1:testindex  )  );
 	H5D.close(dset);
 	H5S.close(space_id);	
 
 fprintf('done\n\n');	
 
 
-tempforest(numGrps);
+	clear('groups');
+	clear('testData');
+	clear('dirData');
+	clear('Pij');
+	clear('files');
+        tempforest(numGrps, curr_size, curr_dist);
+
+
+
+
+
+
+   end %curr_dist
+  end %curr_size
 end
 
 
 
 
 
-function answer = can_be_center(groups, theta, phi, numGrps)
-   MIN_DISTANCE_BETWEEN_CENTERS = 0.04;
 
+%%%%%%%%%%%%%%%%%%%%% functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function answer = can_be_center(groups, theta, phi, numGrps, MIN_DISTANCE_BETWEEN_CENTERS)
+  
    answer = 1;
    for i = 1:numGrps
      	
@@ -559,7 +586,6 @@ function step = get_step_size( Pij, DATASET_SIZE)
 % - 
 % 
 %
-MAX_DATASET_SIZE = 216409;
 
 
 

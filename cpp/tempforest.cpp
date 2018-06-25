@@ -11,9 +11,9 @@ using std::endl;
 using namespace H5;
 
 const H5std_string FILE_NAME( "myfile.h5" );
-const int    RANK_OUT = 2;
 const int NX = 1;
 const int NY = 13;
+
 int main(void)  {
    int curr_nearest[13];
    int rank;
@@ -50,32 +50,23 @@ int main(void)  {
 */
       dataset = group->openDataSet("12_nearestIDs");     
       dataspace = dataset.getSpace();//dataspace???
-      rank = dataspace.getSimpleExtentNdims();//numOfDims
-      
+      rank = dataspace.getSimpleExtentDims( dimsm );// get rank = numOfDims
       //dataset      
       offset[0] = 0;
       offset[1] = 0;
-      count[0]  = 1;
-      count[1]  = 13;
+      count[0]  = dimsm[0];
+      count[1]  = dimsm[1];
       dataspace.selectHyperslab( H5S_SELECT_SET, count, offset );
 
-      //memory database	
-      dimsm[0] = 1;
-      dimsm[1] = 13;
-      DataSpace memspace( RANK_OUT, dimsm );
-
-      //memory hyperslab     
+      //memory hyperslab
+       DataSpace memspace( rank, dimsm );     
       offset_out[0] = 0;
       offset_out[1] = 0;
-      count_out[0] = NX; 
-      count_out[1] = NY; 
+      count_out[0] = dimsm[0]; 
+      count_out[1] = dimsm[1]; 
       memspace.selectHyperslab( H5S_SELECT_SET, count_out, offset_out );
  
       dataset.read(curr_nearest, PredType::NATIVE_INT, memspace, dataspace ); 
-      for (int j=0; j < 12; j++)  {
-         cout << curr_nearest[j] << ", ";  
-      }
-      cout << "\n";
 /*
  *****************************************************
       center:1x2
@@ -83,9 +74,23 @@ int main(void)  {
 */
       dataset = group->openDataSet("center");     
       dataspace = dataset.getSpace();//dataspace???
-      rank = dataspace.getSimpleExtentNdims();//numOfDims
-     
+      rank = dataspace.getSimpleExtentDims( dimsm );// get rank = numOfDims
 
+      //dataset      
+      offset[0] = 0;
+      offset[1] = 0;
+      count[0]  = dimsm[0];
+      count[1]  = dimsm[1];
+      dataspace.selectHyperslab( H5S_SELECT_SET, count, offset );
+
+      //memory database	
+      dimsm[0] = dimsm[0];
+      dimsm[1] = dimsm[1];
+      DataSpace memspace( rank, dimsm );
+
+
+
+      cout << "dims are: " << dimsm[0] << ", " << dimsm[1];
 
 
 

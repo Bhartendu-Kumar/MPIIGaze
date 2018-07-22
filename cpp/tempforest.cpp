@@ -62,7 +62,7 @@ void print_dims(int rank,  hsize_t *dims)  {
 
 
 treeT **buildRegressionTree(unsigned int *fatherSize,unsigned char **treeImgs,double **treeGazes,double**treePoses);
-
+treeT *testSampleInTree(treeT *currNode, unsigned char *test_img, double *test_pose, int j); 
 
 /*************** MAIN ********************************************/
 int main(void)  {
@@ -446,7 +446,8 @@ cout << "nearest dims are " << dims[0] <<", "<<dims[1]<<", "<<dims[2]<<", "<<dim
 
 
        
-       double predict[2], temp_predict[2];
+       double predict[2];
+       treeT *temp_predict=NULL;
        double *errors = (double *)malloc( dims[0] * sizeof(double) );
        if (errors == NULL) {
           cout << "Error allocating memory" << endl; 
@@ -454,24 +455,42 @@ cout << "nearest dims are " << dims[0] <<", "<<dims[1]<<", "<<dims[2]<<", "<<dim
        }
 
        for (j = 0; j < dims[0]; j++)  {
-          predict = {0 0};
-	  for (k = 0; k < R+1; k++)  {     
-
-
+          predict[0] =  0;
+          predict[1] =  0;
+	  for (int k = 0; k < R; k++)  {     
 
              //each tree's prediction	          
-             temp_predict = testSampleInTree();
-	     predict[0] = predict[0] + temp_predict[0];
-	     predict[1] = predict[0] + temp_predict[1];
+             temp_predict = testSampleInTree(trees[test_nearest[k]], test_imgs, test_poses, j );
+	     predict[0] = predict[0] + temp_predict->mean[0];
+	     predict[1] = predict[0] + temp_predict->mean[1];
           }
          
        
           // prediction = mean prediction of all trees ///
           predict[0] = predict[0]/(R+1);
           predict[1] = predict[1]/(R+1);
-          errors[j] = sqrt( pow(predict[0]-test_gazes[j,0],2) + pow(predict[1]-test_gazes[j,1],2) );
+          //errors[j] = sqrt( pow(predict[0]-test_gazes[j,0],2) + pow(predict[1]-test_gazes[j,1],2) );
+	  errors[j] = sqrt( pow(predict[0]-test_gazes[2*j ],2) + pow(predict[1]-test_gazes[2*j+1],2) );
        }
-      
+
+       //mean error
+       double mean_error = 0;
+       for (j = 0; j < dims[0]; j++)  {
+          mean_error =  mean_error + errors[j]/dims[0];
+          //deviation  =  rad2deg( std( errors(1:ntestsamples)) )%%	
+       }
+
+       //stdev error
+       double stdev_error = 0;
+       for (j = 0; j < dims[0]; j++)  {
+          stdev_error = stdev_error + pow(errors[j]-mean_error,2);
+       }
+       stdev_error = stdev_error/dims[0];
+       stdev_error = sqrt( stdev_error ); 
+       cout << "mean_error(deg) is: " << mean_error*(180.0/M_PI) << endl;
+       cout << "stdev_error(deg) is: " << stdev_error*(180.0/M_PI) << endl;        
+
+       free( errors );
 
     }//try 
     catch(  FileIException error)  {
@@ -485,7 +504,6 @@ cout << "nearest dims are " << dims[0] <<", "<<dims[1]<<", "<<dims[2]<<", "<<dim
       free( treeImgs[i]  );
       free( treePoses[i] );
       free( trees[i]     );
-      
    }
    free( treeGazes );
    free( treeImgs  );
@@ -501,15 +519,24 @@ cout << "nearest dims are " << dims[0] <<", "<<dims[1]<<", "<<dims[2]<<", "<<dim
    return 0;
 }
 
-double *testSampleInTree(treeT *tree, treeT *currNode, unsigned char *test_img, double *test_pose )  {
-   double val[2] = {0 0};
+treeT *testSampleInTree(treeT *curr, unsigned char *test_img, double *test_pose, int j)  {
 
-   if  
+   //double val[2] = {0, 0};
+
+   if (curr->right == NULL)  {//leaf reached
+      //val[0] = currNode->mean[0];   
+      //val[1] = currNode->mean[1];
+      return curr;
+   } 
+   else  { // right or left?
+      if ( abs( test_img[ j*WIDTH*HEIGHT + curr->minPx1_vert*WIDTH+curr->minPx1_hor ] - test_img[ j*WIDTH*HEIGHT + curr->minPx2_vert*WIDTH+curr->minPx2_hor ]) >= curr->thres  )
+         curr = testSampleInTree(curr->right, test_img, test_pose, j);
+      else
+	 curr = testSampleInTree(curr->left, test_img, test_pose, j);
+   }
 
 
-
-
-   return NULL;
+   return curr;
 }
 
 /*

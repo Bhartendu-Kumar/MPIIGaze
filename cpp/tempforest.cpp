@@ -1,4 +1,4 @@
-#define NUM_OF_TREES 690//514
+#define NUM_OF_TREES 514
 #define MAX_SAMPLES_PER_TREE 1000
 #define MAX_RECURSION_DEPTH 15
 #define MAX_GRP_SIZE 500
@@ -9,7 +9,7 @@
 #define LEFT 1
 #define RIGHT 2
 
-#define RADIUS 10
+#define RADIUS 5
 
 
 #ifdef OLD_HEADER_FILENAME
@@ -441,7 +441,7 @@ cout << "nearest dims are " << dims[0] <<", "<<dims[1]<<", "<<dims[2]<<", "<<dim
        DataSpace memspace( rank, dims);
 	
 
-
+       int max_neighbours = dims[1]; 
        test_nearest = (int *)malloc( dims[0]*dims[1]*sizeof(int) );
        if (test_nearest == NULL) {
 	  cout << "Error allocating memory" << endl;
@@ -508,18 +508,23 @@ cout << "nearest dims are " << dims[0] <<", "<<dims[1]<<", "<<dims[2]<<", "<<dim
        for (j = 0; j < dims[0]; j++)  {
           predict[0] =  0;
           predict[1] =  0;
+	  //cout << endl << "***** no." << j << ". Test sample=(" << test_gazes[2*j] << ", " << test_gazes[2*j+1] << ") " << "******" << endl;
 	  for (int k = 0; k < RADIUS+1; k++)  {     
 
-             //each tree's prediction	          
-             temp_predict = testSampleInTree(trees[test_nearest[k]], test_imgs, test_poses, j );
+             //each tree's prediction
+             temp_predict = testSampleInTree(trees[ test_nearest[j*max_neighbours + k]-1 ], test_imgs, test_poses, j );
 	     predict[0] = predict[0] + temp_predict->mean[0];
-	     predict[1] = predict[0] + temp_predict->mean[1];
+	     predict[1] = predict[1] + temp_predict->mean[1];
+	     cout << "\t" << k << ": mean=(" << temp_predict->mean[0] << ", " << temp_predict->mean[1] << "), tree=" << test_nearest[j*max_neighbours + k]-1 <<  ", RADIUS=" <<k  << ", error=" <<   sqrt( pow(temp_predict->mean[0]-test_gazes[2*j ],2) + pow(temp_predict->mean[1]-test_gazes[2*j+1],2) )<< ", n=" << temp_predict->numOfPtrs << endl;
+	     
           }
                 
           // prediction = mean prediction of all trees
           predict[0] = predict[0]/(RADIUS+1);
           predict[1] = predict[1]/(RADIUS+1);
 	  errors[j] = sqrt( pow(predict[0]-test_gazes[2*j ],2) + pow(predict[1]-test_gazes[2*j+1],2) );
+
+	  //cout << "error is:" << errors[j]*(180.0/M_PI) << endl;
        }
 
 
